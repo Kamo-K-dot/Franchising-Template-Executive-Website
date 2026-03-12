@@ -514,7 +514,7 @@ export default function App() {
                 <LayoutDashboard size={24} />
               </div>
               <div>
-                <h1 className="text-lg font-bold tracking-tight">Franchise Operations Dashboard</h1>
+                <h1 className="text-lg font-bold tracking-tight">Franchise Ops Dashboard</h1>
                 <p className="text-[10px] text-slate-500 font-medium uppercase tracking-widest">Executive Report • COO View</p>
               </div>
             </div>
