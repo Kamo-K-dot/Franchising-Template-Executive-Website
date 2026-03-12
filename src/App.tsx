@@ -6,10 +6,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
-  PieChart, Pie
-} from 'recharts';
+import Papa from 'papaparse';
 import { 
   LayoutDashboard, 
   CheckCircle2, 
@@ -25,9 +22,18 @@ import {
   DollarSign,
   FileText,
   ArrowRight,
-  Loader2
+  Loader2,
+  Upload,
+  FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  PieChart, 
+  Pie, 
+  Cell, 
+  ResponsiveContainer, 
+  Tooltip 
+} from 'recharts';
 
 // --- Data Structure ---
 
@@ -44,65 +50,26 @@ interface Task {
   notes?: string;
 }
 
-const RAW_DATA: Task[] = [
-  // Marketing & Comms
-  { id: '1', title: 'Social Media Post - Announce Franchise', owner: 'Fabio De Gouveia', department: 'Marketing', timeline: '1 week', deadline: '3/6/2026', status: 'In Progress' },
-  { id: '2', title: 'Social Media Post for Singapore', owner: 'Fabio De Gouveia', department: 'Marketing', timeline: '1 week', deadline: '3/6/2026', status: 'In Progress' },
-  { id: '3', title: 'Tyla Activities (Singapore & UK Ads)', owner: 'Fabio, Danielle', department: 'Marketing', timeline: '48-hours', deadline: '3/3/2026', status: 'In Progress' },
-  { id: '4', title: 'Yearly Marketing Plan', owner: 'Fabio, Carla', department: 'Marketing', timeline: 'TBD', deadline: '-', status: 'Complete' },
-  { id: '5', title: 'Newsletters for Franchisees', owner: 'Carla van Wyk', department: 'Marketing', timeline: '1 week', deadline: '3/6/2026', status: 'In Progress' },
-  
-  // Sales & Franchise Dev
-  { id: '6', title: 'Catch-Up call - sales process', owner: 'Jermi Ramakrishnan', department: 'Sales', timeline: '2-weeks', deadline: 'Always On', status: 'In Progress' },
-  { id: '7', title: 'Franchise Planner / Mapping', owner: 'Jermi, Carla, Kamohelo', department: 'Sales', timeline: '2-weeks', deadline: '3/13/2026', status: 'In Progress' },
-  { id: '8', title: 'Internal Sales vs Franchise Sales Strategy', owner: 'Kamohelo, Jermi, Sam', department: 'Sales', timeline: '1 week', deadline: '3/5/2026', status: 'In Progress' },
-  { id: '9', title: 'Franchise Commission Conversion', owner: 'Samantha Labuschagne', department: 'Sales', timeline: '1 week', deadline: '3/5/2026', status: 'In Progress' },
-  { id: '10', title: 'Jono targets for Franchise workflow', owner: 'Joshua Smith', department: 'Sales', timeline: 'Immediate', deadline: '2/5/2026', status: 'Complete' },
-
-  // Product & Training
-  { id: '11', title: 'Onboarding <> Product (Account Creation Form)', owner: 'Joshua, Fabio, Lara', department: 'Product', timeline: '1 week', deadline: '3/3/2026', status: 'In Progress' },
-  { id: '12', title: 'Update BIAB presentation - Financials', owner: 'Lara, Anthony', department: 'Product', timeline: 'Immediate', deadline: '3/3/2026', status: 'In Progress' },
-  { id: '13', title: 'Club presentation from JP - changes', owner: 'JP Human', department: 'Product', timeline: '48-hours', deadline: '-', status: 'Complete' },
-  { id: '14', title: 'Training Session with Aarti', owner: 'Paul', department: 'Product', timeline: '48-hours', deadline: '2/5/2026', status: 'Complete' },
-  { id: '15', title: 'Diagnostic Test (Free Play Session)', owner: 'Anya, Joshua', department: 'Product', timeline: '1-month', deadline: '-', status: 'Urgent/At Risk', notes: 'Urgent for Besnik' },
-  { id: '16', title: 'Play Focussed Curriculum (8 Lessons)', owner: 'Anya, Joshua', department: 'Product', timeline: '1-month', deadline: 'March', status: 'In Progress' },
-
-  // Operations & Manuals
-  { id: '17', title: 'Franchisee Ops Manual', owner: 'Fabio De Gouveia', department: 'Operations', timeline: '2-months', deadline: '-', status: 'In Progress' },
-  { id: '18', title: 'Parent Presentation - add advanced', owner: 'Fabio, JP', department: 'Operations', timeline: 'Immediate', deadline: '-', status: 'Complete' },
-  { id: '19', title: 'Singapore Lead Board Automations', owner: 'Fabio De Gouveia', department: 'Operations', timeline: '1 week', deadline: '3/6/2026', status: 'In Progress' },
-  { id: '20', title: 'Master/Internal Ops Manual vs External', owner: 'Carla van Wyk', department: 'Operations', timeline: '48-hours', deadline: '2/23/2026', status: 'Complete' },
-  { id: '21', title: 'Ops manual & what it consists off meeting', owner: 'Carla, Josh, Lara, Jermi', department: 'Operations', timeline: '1 week', deadline: '2/27/2026', status: 'Complete' },
-
-  // IT & Systems
-  { id: '22', title: 'Email setup + LMS Setup', owner: 'Joshua, Carla', department: 'IT', timeline: '1 week', deadline: '3/6/2026', status: 'In Progress' },
-  { id: '23', title: 'Website (Design Phase)', owner: 'Joshua Smith', department: 'IT', timeline: '1 week', deadline: '3/6/2026', status: 'In Progress' },
-  { id: '24', title: 'Monday Setup for onboarding', owner: 'Sam, Jermi', department: 'IT', timeline: '2-weeks', deadline: '2/3/2026', status: 'In Progress' },
-  { id: '25', title: 'Monday Pipeline Setup', owner: 'Sam, Jermi', department: 'IT', timeline: '2-weeks', deadline: '2/3/2026', status: 'In Progress' },
-
-  // Finance & Legal
-  { id: '26', title: 'Governmental Funding - Review', owner: 'Carla, Sam', department: 'Finance', timeline: 'Immediate', deadline: '-', status: 'Complete' },
-  { id: '27', title: 'BIAB - 2 Cases', owner: 'Joshua, Anthony', department: 'Finance', timeline: 'Immediate', deadline: '2/23/2026', status: 'Complete' },
-  { id: '28', title: 'SP Invoice', owner: 'Sam, Francois, Jermi', department: 'Finance', timeline: 'Immediate', deadline: '2/23/2026', status: 'Complete' },
-  { id: '29', title: 'Franchise Agreement finalisation', owner: 'Carla van Wyk', department: 'Finance', timeline: 'Immediate', deadline: '-', status: 'Urgent/At Risk' },
-  { id: '30', title: 'BIAB Agreement', owner: 'Carla van Wyk', department: 'Finance', timeline: 'Immediate', deadline: '-', status: 'Urgent/At Risk' },
-  { id: '31', title: 'Franchise x Parents Agreements', owner: 'Carla van Wyk', department: 'Finance', timeline: 'Immediate', deadline: '-', status: 'Urgent/At Risk' },
-  { id: '32', title: 'Namibia Invoice', owner: 'Francois Labuschagne', department: 'Finance', timeline: '48-hours', deadline: '-', status: 'Complete' },
-  { id: '33', title: 'UAE - Meta Adds to Resolute', owner: 'Lara, Carla', department: 'Product', timeline: '1 week', deadline: '3/2/2026', status: 'Waiting/TBD', notes: 'Waiting on Mark' },
-  { id: '34', title: 'Software allocation to IT costs', owner: 'Joshua, Emad', department: 'IT', timeline: '1-year', deadline: '12/1/2026', status: 'In Progress' },
-  { id: '35', title: 'Cash outflows before inflow for Stock', owner: 'Francois Labuschagne', department: 'Finance', timeline: '2-weeks', deadline: '12/3/2026', status: 'In Progress' },
-  { id: '36', title: 'Finance Model Revision (Ashleigh 2yr)', owner: 'Jermi, Sam', department: 'Finance', timeline: '48-hours', deadline: '-', status: 'In Progress' },
-  { id: '37', title: 'EL Invoice', owner: 'Francois Labuschagne', department: 'Finance', timeline: '48-hours', deadline: '-', status: 'Complete' },
-];
-
-const DEPARTMENTS = [
+const DEPARTMENTS_CONFIG = [
   { name: 'Marketing', icon: Megaphone, color: 'bg-indigo-500' },
   { name: 'Sales', icon: Briefcase, color: 'bg-emerald-500' },
   { name: 'Product', icon: LayoutDashboard, color: 'bg-violet-500' },
+  { name: 'Products', icon: LayoutDashboard, color: 'bg-violet-500' },
   { name: 'Operations', icon: Settings, color: 'bg-amber-500' },
   { name: 'IT', icon: Database, color: 'bg-blue-500' },
   { name: 'Finance', icon: DollarSign, color: 'bg-rose-500' },
+  { name: 'Training', icon: Users, color: 'bg-orange-500' },
+  { name: 'Academics', icon: FileText, color: 'bg-cyan-500' },
+  { name: 'Legal', icon: FileText, color: 'bg-slate-500' },
+  { name: 'Supply Chain', icon: Database, color: 'bg-teal-500' },
+  { name: 'Hardware', icon: Settings, color: 'bg-gray-500' },
+  { name: 'General', icon: LayoutDashboard, color: 'bg-slate-400' },
 ];
+
+const getDeptConfig = (name: string) => {
+  const config = DEPARTMENTS_CONFIG.find(d => d.name.toLowerCase() === name.toLowerCase() || name.toLowerCase().includes(d.name.toLowerCase()));
+  return config || { name, icon: LayoutDashboard, color: 'bg-slate-400' };
+};
 
 const STATUS_COLORS: Record<Status, string> = {
   'Complete': '#10b981', // emerald-500
@@ -429,14 +396,17 @@ export default function App() {
   const [showRisks, setShowRisks] = useState(false);
   const [groupBy, setGroupBy] = useState<'dept' | 'owner'>('dept');
   const [isExporting, setIsExporting] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [fileName, setFileName] = useState<string | null>(null);
   const dashboardRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const stats = useMemo(() => {
-    const total = RAW_DATA.length;
-    const complete = RAW_DATA.filter(t => t.status === 'Complete').length;
-    const urgent = RAW_DATA.filter(t => t.status === 'Urgent/At Risk').length;
-    const inProgress = RAW_DATA.filter(t => t.status === 'In Progress').length;
-    const waiting = RAW_DATA.filter(t => t.status === 'Waiting/TBD').length;
+    const total = tasks.length;
+    const complete = tasks.filter(t => t.status === 'Complete').length;
+    const urgent = tasks.filter(t => t.status === 'Urgent/At Risk').length;
+    const inProgress = tasks.filter(t => t.status === 'In Progress').length;
+    const waiting = tasks.filter(t => t.status === 'Waiting/TBD').length;
     
     const statusData = [
       { name: 'Complete', value: complete, color: STATUS_COLORS['Complete'] },
@@ -445,16 +415,88 @@ export default function App() {
       { name: 'Waiting', value: waiting, color: STATUS_COLORS['Waiting/TBD'] },
     ];
 
-    const deptData = DEPARTMENTS.map(d => ({
-      name: d.name,
-      total: RAW_DATA.filter(t => t.department === d.name).length,
-      complete: RAW_DATA.filter(t => t.department === d.name && t.status === 'Complete').length,
+    const uniqueDepts = Array.from(new Set(tasks.map(t => t.department)));
+    const deptData = uniqueDepts.map(d => ({
+      name: d,
+      total: tasks.filter(t => t.department === d).length,
+      complete: tasks.filter(t => t.department === d && t.status === 'Complete').length,
     }));
 
-    const uniqueOwners: string[] = Array.from(new Set(RAW_DATA.map(t => t.owner))).sort();
+    const uniqueOwners = Array.from(new Set(tasks.map(t => t.owner))).sort() as string[];
 
-    return { total, complete, urgent, inProgress, statusData, deptData, uniqueOwners };
-  }, []);
+    return { total, complete, urgent, inProgress, statusData, deptData, uniqueOwners, uniqueDepts };
+  }, [tasks]);
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setFileName(file.name);
+    Papa.parse(file, {
+      complete: (results) => {
+        const data = results.data as string[][];
+        const newTasks: Task[] = [];
+        let currentDept = '';
+        let skipSection = false;
+
+        for (const row of data) {
+          const firstCell = row[0]?.toString().trim();
+          if (!firstCell || firstCell === 'Name') continue;
+
+          // Detect section headers (rows with only one meaningful cell or specific markers)
+          const nonEmpyCells = row.filter(cell => cell && cell.toString().trim());
+          if (nonEmpyCells.length === 1 || (nonEmpyCells.length > 1 && !row[1] && !row[2] && !row[3])) {
+            const sectionName = firstCell.replace(/'/g, '').trim();
+            if (sectionName === 'Kamo Priorities Board' || sectionName.includes('Franchising Project Management')) {
+              skipSection = true;
+              currentDept = '';
+            } else if (sectionName === 'Tasks Departments need to do') {
+              // skip
+            } else {
+              skipSection = false;
+              currentDept = sectionName;
+            }
+            continue;
+          }
+
+          if (skipSection) continue;
+
+          // Use the Department column (index 3) if available, otherwise fallback to currentDept from header
+          const rowDept = row[3]?.toString().trim();
+          const taskDept = rowDept || currentDept;
+
+          if (taskDept && firstCell) {
+            let status: Status = 'In Progress';
+            const progressStep = row[7]?.toString().trim() || '';
+            const lowerStatus = progressStep.toLowerCase();
+            
+            if (lowerStatus.includes('complete') || lowerStatus.includes('done')) {
+              status = 'Complete';
+            } else if (lowerStatus.includes('urgent') || lowerStatus.includes('risk') || lowerStatus.includes('at risk')) {
+              status = 'Urgent/At Risk';
+            } else if (lowerStatus.includes('waiting') || lowerStatus.includes('tbd')) {
+              status = 'Waiting/TBD';
+            }
+
+            newTasks.push({
+              id: Math.random().toString(36).substr(2, 9),
+              title: firstCell,
+              owner: row[1]?.toString().trim() || row[2]?.toString().trim() || 'Unassigned',
+              department: taskDept,
+              timeline: row[4] && row[5] ? `${row[4]} - ${row[5]}` : (row[4] || row[5] || 'TBD'),
+              deadline: row[6]?.toString().trim() || '-',
+              status: status,
+              notes: row[8]?.toString().trim() || progressStep
+            });
+          }
+        }
+        setTasks(newTasks);
+      },
+      error: (error) => {
+        console.error('CSV Parsing Error:', error);
+      }
+    });
+  };
 
   const handleExport = async () => {
     if (!dashboardRef.current || isExporting) return;
@@ -499,10 +541,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-indigo-100">
-      {/* Cover Page (Only visible in print or if we add a toggle) */}
-      <div className="hidden print:block">
-        <CoverPage />
-      </div>
+      {tasks.length > 0 && (
+        <div className="hidden print:block">
+          <CoverPage />
+        </div>
+      )}
 
       {/* Main App Content */}
       <div className="print:hidden" ref={dashboardRef}>
@@ -519,6 +562,19 @@ export default function App() {
               </div>
             </div>
             <div className="flex items-center gap-4">
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload} 
+                accept=".csv" 
+                className="hidden" 
+              />
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-all border border-indigo-100"
+              >
+                <Upload size={14} /> {fileName ? 'Change CSV' : 'Upload CSV'}
+              </button>
               <div className="hidden md:block text-right">
                 <p className="text-xs font-semibold text-slate-900">Support Manager</p>
                 <p className="text-[10px] text-slate-500">Reporting to COO</p>
@@ -531,11 +587,30 @@ export default function App() {
         </header>
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Executive Header Section */}
+          {tasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-32 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200 shadow-sm">
+              <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 mb-8">
+                <Upload size={40} />
+              </div>
+              <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">No Dashboard Data</h3>
+              <p className="text-slate-500 text-center max-w-md mb-10 font-medium leading-relaxed">
+                Please upload your weekly operations CSV file to generate the executive dashboard and view departmental insights.
+              </p>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-3 px-10 py-5 bg-indigo-600 text-white rounded-2xl text-base font-bold hover:bg-indigo-700 transition-all shadow-2xl shadow-indigo-200 active:scale-95 group"
+              >
+                <Upload size={20} className="group-hover:-translate-y-1 transition-transform" /> 
+                Upload CSV File
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Executive Header Section */}
           <div className="mb-8 bg-white p-8 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full -mr-32 -mt-32 opacity-50"></div>
             <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6">
-              <div>
+              <div className="flex-1">
                 <h2 className="text-3xl font-black text-slate-900 mb-2 tracking-tight">Resolute Franchise Weekly Operations Snapshot</h2>
                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                   <div className="flex items-center gap-2">
@@ -547,6 +622,15 @@ export default function App() {
                     <span className="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Prepared For:</span>
                     <span className="font-bold text-indigo-600">Carla Van Wyk</span>
                   </div>
+                  {fileName && (
+                    <>
+                      <div className="w-px h-4 bg-slate-200 hidden sm:block"></div>
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet size={14} className="text-emerald-500" />
+                        <span className="font-bold text-slate-600">{fileName}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               <button 
@@ -600,7 +684,10 @@ export default function App() {
           </div>
 
           {/* Support Manager Action Plan */}
-          <SupportManagerSection departments={DEPARTMENTS} tasks={RAW_DATA} />
+          <SupportManagerSection 
+            departments={stats.uniqueDepts.map(d => getDeptConfig(d))} 
+            tasks={tasks} 
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Left Column: Charts & Urgent */}
@@ -643,7 +730,7 @@ export default function App() {
                         <span className="text-slate-600 font-medium">{s.name}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-slate-400 text-[10px]">({Math.round((s.value / stats.total) * 100)}%)</span>
+                        <span className="text-slate-400 text-[10px]">({stats.total > 0 ? Math.round((s.value / stats.total) * 100) : 0}%)</span>
                         <span className="text-slate-900 font-bold">{s.value}</span>
                       </div>
                     </div>
@@ -658,7 +745,7 @@ export default function App() {
                   Critical Attention Required
                 </h3>
                 <div className="space-y-3">
-                  {RAW_DATA.filter(t => t.status === 'Urgent/At Risk').slice(0, 3).map(task => (
+                  {tasks.filter(t => t.status === 'Urgent/At Risk').slice(0, 3).map(task => (
                     <div key={task.id} className="bg-white p-3 rounded-xl border border-rose-200 shadow-sm">
                       <p className="text-xs font-bold text-slate-900 mb-1">{task.title}</p>
                       <div className="flex items-center justify-between">
@@ -676,7 +763,7 @@ export default function App() {
                         exit={{ height: 0, opacity: 0 }}
                         className="space-y-3 overflow-hidden"
                       >
-                        {RAW_DATA.filter(t => t.status === 'Urgent/At Risk').slice(3).map(task => (
+                        {tasks.filter(t => t.status === 'Urgent/At Risk').slice(3).map(task => (
                           <div key={task.id} className="bg-white p-3 rounded-xl border border-rose-200 shadow-sm">
                             <p className="text-xs font-bold text-slate-900 mb-1">{task.title}</p>
                             <div className="flex items-center justify-between">
@@ -724,20 +811,23 @@ export default function App() {
 
                 <div className="space-y-2">
                   {groupBy === 'dept' ? (
-                    DEPARTMENTS.map(dept => (
-                      <div key={dept.name}>
-                        <DepartmentSection 
-                          dept={dept} 
-                          tasks={RAW_DATA.filter(t => t.department === dept.name)} 
-                        />
-                      </div>
-                    ))
+                    stats.uniqueDepts.map(deptName => {
+                      const deptConfig = getDeptConfig(deptName);
+                      return (
+                        <div key={deptName}>
+                          <DepartmentSection 
+                            dept={deptConfig} 
+                            tasks={tasks.filter(t => t.department === deptName)} 
+                          />
+                        </div>
+                      );
+                    })
                   ) : (
                     stats.uniqueOwners.map(owner => (
                       <div key={owner}>
                         <OwnerSection 
                           owner={owner}
-                          tasks={RAW_DATA.filter(t => t.owner === owner)}
+                          tasks={tasks.filter(t => t.owner === owner)}
                         />
                       </div>
                     ))
@@ -746,13 +836,15 @@ export default function App() {
               </div>
             </div>
           </div>
-        </main>
+        </>
+        )}
+      </main>
 
         {/* Footer */}
         <footer className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 border-t border-slate-200">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-xs text-slate-500">
-              Generated on {new Date().toLocaleDateString()} • Data synced from Master Franchise Tracker
+              Generated on {new Date().toLocaleDateString()} • Data synced from {fileName || 'Master Franchise Tracker'}
             </p>
             <div className="flex items-center gap-6">
               <button 
@@ -769,127 +861,132 @@ export default function App() {
         </footer>
       </div>
 
-      {/* Print-only Report Layout (Full Document) */}
-      <div className="hidden print:block bg-white text-black p-0">
-        <div className="max-w-4xl mx-auto">
-          {/* We already have the CoverPage at the top of the return, but let's ensure the rest of the content follows it correctly in print */}
-          <div className="page-break-after-always"></div>
-          
-          <div className="py-12 px-8">
-            <div className="flex items-center justify-between mb-12 border-b-2 border-slate-900 pb-6">
-              <div>
-                <h2 className="text-2xl font-black uppercase tracking-tighter">Weekly Operations Snapshot</h2>
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Franchise Operations • {new Date().toLocaleDateString()}</p>
+      {tasks.length > 0 && (
+        <div className="hidden print:block bg-white text-black p-0">
+          <div className="max-w-4xl mx-auto">
+            {/* We already have the CoverPage at the top of the return, but let's ensure the rest of the content follows it correctly in print */}
+            <div className="page-break-after-always"></div>
+            
+            <div className="py-12 px-8">
+              <div className="flex items-center justify-between mb-12 border-b-2 border-slate-900 pb-6">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-tighter">Weekly Operations Snapshot</h2>
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Franchise Operations • {new Date().toLocaleDateString()}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold">Resolute Franchise</p>
+                  <p className="text-[10px] text-slate-500">Master Tracker Sync</p>
+                </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-bold">Resolute Franchise</p>
-                <p className="text-[10px] text-slate-500">Master Tracker Sync</p>
-              </div>
-            </div>
 
-            {/* Print Stats */}
-            <div className="grid grid-cols-4 gap-4 mb-12">
-              <div className="border border-slate-200 p-4 rounded-xl">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Tasks</p>
-                <p className="text-2xl font-black">{stats.total}</p>
+              {/* Print Stats */}
+              <div className="grid grid-cols-4 gap-4 mb-12">
+                <div className="border border-slate-200 p-4 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Tasks</p>
+                  <p className="text-2xl font-black">{stats.total}</p>
+                </div>
+                <div className="border border-slate-200 p-4 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Completed</p>
+                  <p className="text-2xl font-black text-emerald-600">{stats.complete}</p>
+                </div>
+                <div className="border border-slate-200 p-4 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">In Progress</p>
+                  <p className="text-2xl font-black text-blue-600">{stats.inProgress}</p>
+                </div>
+                <div className="border border-slate-200 p-4 rounded-xl">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Urgent</p>
+                  <p className="text-2xl font-black text-rose-600">{stats.urgent}</p>
+                </div>
               </div>
-              <div className="border border-slate-200 p-4 rounded-xl">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Completed</p>
-                <p className="text-2xl font-black text-emerald-600">{stats.complete}</p>
-              </div>
-              <div className="border border-slate-200 p-4 rounded-xl">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">In Progress</p>
-                <p className="text-2xl font-black text-blue-600">{stats.inProgress}</p>
-              </div>
-              <div className="border border-slate-200 p-4 rounded-xl">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Urgent</p>
-                <p className="text-2xl font-black text-rose-600">{stats.urgent}</p>
-              </div>
-            </div>
 
-            {/* Support Manager Plan in Print */}
-            <SupportManagerSection departments={DEPARTMENTS} tasks={RAW_DATA} />
+              {/* Support Manager Plan in Print */}
+              <SupportManagerSection 
+                departments={stats.uniqueDepts.map(d => getDeptConfig(d))} 
+                tasks={tasks} 
+              />
 
-            {/* Dynamic Breakdown in Print */}
-            <div className="mt-12">
-              <h3 className="text-xl font-black uppercase tracking-tight mb-6 border-b border-slate-200 pb-2">
-                {groupBy === 'dept' ? 'Departmental Breakdown' : 'Breakdown By Owner'}
-              </h3>
-              {groupBy === 'dept' ? (
-                DEPARTMENTS.map(dept => {
-                  const deptTasks = RAW_DATA.filter(t => t.department === dept.name);
-                  return (
-                    <div key={dept.name} className="mb-8 break-inside-avoid">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-bold flex items-center gap-2">
-                          <span className={`w-3 h-3 rounded-full ${dept.color}`}></span>
-                          {dept.name}
-                        </h4>
-                        <span className="text-xs font-bold text-slate-500">
-                          {deptTasks.filter(t => t.status === 'Complete').length} / {deptTasks.length} Tasks Complete
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {deptTasks.map(task => (
-                          <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-100 text-xs">
-                            <div className="flex-1">
-                              <p className="font-bold">{task.title}</p>
-                              <p className="text-[10px] text-slate-500">{task.owner} • {task.deadline}</p>
+              {/* Dynamic Breakdown in Print */}
+              <div className="mt-12">
+                <h3 className="text-xl font-black uppercase tracking-tight mb-6 border-b border-slate-200 pb-2">
+                  {groupBy === 'dept' ? 'Departmental Breakdown' : 'Breakdown By Owner'}
+                </h3>
+                {groupBy === 'dept' ? (
+                  stats.uniqueDepts.map(deptName => {
+                    const deptConfig = getDeptConfig(deptName);
+                    const deptTasks = tasks.filter(t => t.department === deptName);
+                    return (
+                      <div key={deptName} className="mb-8 break-inside-avoid">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-bold flex items-center gap-2">
+                            <span className={`w-3 h-3 rounded-full ${deptConfig.color}`}></span>
+                            {deptName}
+                          </h4>
+                          <span className="text-xs font-bold text-slate-500">
+                            {deptTasks.filter(t => t.status === 'Complete').length} / {deptTasks.length} Tasks Complete
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {deptTasks.map(task => (
+                            <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-100 text-xs">
+                              <div className="flex-1">
+                                <p className="font-bold">{task.title}</p>
+                                <p className="text-[10px] text-slate-500">{task.owner} • {task.deadline}</p>
+                              </div>
+                              <div className="text-right">
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border 
+                                  ${task.status === 'Complete' ? 'border-emerald-200 text-emerald-700' : 
+                                    task.status === 'Urgent/At Risk' ? 'border-rose-200 text-rose-700' : 
+                                    'border-blue-200 text-blue-700'}`}>
+                                  {task.status}
+                                </span>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border 
-                                ${task.status === 'Complete' ? 'border-emerald-200 text-emerald-700' : 
-                                  task.status === 'Urgent/At Risk' ? 'border-rose-200 text-rose-700' : 
-                                  'border-blue-200 text-blue-700'}`}>
-                                {task.status}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
-              ) : (
-                stats.uniqueOwners.map(owner => {
-                  const ownerTasks = RAW_DATA.filter(t => t.owner === owner);
-                  return (
-                    <div key={owner} className="mb-8 break-inside-avoid">
-                      <div className="flex items-center justify-between mb-4">
-                        <h4 className="text-lg font-bold flex items-center gap-2">
-                          <Users size={18} className="text-slate-400" />
-                          {owner}
-                        </h4>
-                        <span className="text-xs font-bold text-slate-500">
-                          {ownerTasks.filter(t => t.status === 'Complete').length} / {ownerTasks.length} Tasks Complete
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {ownerTasks.map(task => (
-                          <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-100 text-xs">
-                            <div className="flex-1">
-                              <p className="font-bold">{task.title}</p>
-                              <p className="text-[10px] text-slate-500">{task.department} • {task.deadline}</p>
+                    );
+                  })
+                ) : (
+                  stats.uniqueOwners.map(owner => {
+                    const ownerTasks = tasks.filter(t => t.owner === owner);
+                    return (
+                      <div key={owner} className="mb-8 break-inside-avoid">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-lg font-bold flex items-center gap-2">
+                            <Users size={18} className="text-slate-400" />
+                            {owner}
+                          </h4>
+                          <span className="text-xs font-bold text-slate-500">
+                            {ownerTasks.filter(t => t.status === 'Complete').length} / {ownerTasks.length} Tasks Complete
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {ownerTasks.map(task => (
+                            <div key={task.id} className="flex items-center justify-between py-2 border-b border-slate-100 text-xs">
+                              <div className="flex-1">
+                                <p className="font-bold">{task.title}</p>
+                                <p className="text-[10px] text-slate-500">{task.department} • {task.deadline}</p>
+                              </div>
+                              <div className="text-right">
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border 
+                                  ${task.status === 'Complete' ? 'border-emerald-200 text-emerald-700' : 
+                                    task.status === 'Urgent/At Risk' ? 'border-rose-200 text-rose-700' : 
+                                    'border-blue-200 text-blue-700'}`}>
+                                  {task.status}
+                                </span>
+                              </div>
                             </div>
-                            <div className="text-right">
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded border 
-                                ${task.status === 'Complete' ? 'border-emerald-200 text-emerald-700' : 
-                                  task.status === 'Urgent/At Risk' ? 'border-rose-200 text-rose-700' : 
-                                  'border-blue-200 text-blue-700'}`}>
-                                {task.status}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })
-              )}
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
